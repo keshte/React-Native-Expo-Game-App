@@ -1,281 +1,236 @@
 import React, { useState } from 'react';
 import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  TouchableOpacity, 
-  FlatList, 
-  SafeAreaView, 
-  StatusBar,
-  Switch
+  StyleSheet, Text, View, TouchableOpacity, FlatList, 
+  SafeAreaView, StatusBar, Switch, Modal, TextInput, 
+  ScrollView, Alert, KeyboardAvoidingView, Platform 
 } from 'react-native';
-
-// --- ПУНКТ 7: Окремий компонент для елемента списку (Картка процесу/юніта) ---
-const TeamItem = ({ title, level, efficiency, isDark }) => {
-  return (
-    <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
-      {/* Імітація зображення/іконки за допомогою стилізованого текстового блоку */}
-      <View style={styles.iconPlaceholder}>
-        <Text style={styles.iconText}>🤖</Text>
-      </View>
-      <View style={styles.cardContent}>
-        <Text style={[styles.cardTitle, isDark ? styles.textDark : styles.textLight]}>
-          {title}
-        </Text>
-        <Text style={styles.cardSubtitle}>
-          Рівень автоматизації: {level} | Ефективність: +{efficiency}/сек
-        </Text>
-      </View>
-    </View>
-  );
-};
+// Примітка: якщо слайдер не встановлено, можна замінити його на TextInput
+import Slider from '@react-native-community/slider'; 
 
 export default function App() {
-  // --- ПУНКТ 3 & 6: Стани для перемикання екранів та налаштування теми ---
-  const [currentScreen, setCurrentScreen] = useState('list'); // 'list' або 'settings'
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  // --- СТАН (STATE) ---
+  const [items, setItems] = useState([
+    { id: '1', title: 'Збір ресурсів', level: 5, efficiency: 15, desc: 'Базовий процес видобутку енергії для системи.' },
+    { id: '2', title: 'Аналіз коду', level: 3, efficiency: 45, desc: 'Автоматичне виправлення багів у реальному часі.' },
+  ]);
 
-  // --- ПУНКТ 5: Генерація масиву з 20+ елементів для командної гри ---
-  const gameItems = Array.from({ length: 22 }, (_, index) => ({
-    id: String(index + 1),
-    title: `Авто-процес №${index + 1}: ${
-      ['Збір ресурсів', 'Аналіз коду', 'Тестування модулів', 'Менеджмент завдань', 'Деплой серверів'][index % 5]
-    }`,
-    level: Math.floor(Math.random() * 10) + 1,
-    efficiency: (index + 1) * 3,
-  }));
+  const [currentScreen, setCurrentScreen] = useState('list'); // list, settings, add
+  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [navVisible, setNavVisible] = useState(false);
+  const [detailItem, setDetailItem] = useState(null);
 
-  // Стилі для поточної теми
-  const themeContainerStyle = isDarkMode ? styles.containerDark : styles.containerLight;
-  const themeTextStyle = isDarkMode ? styles.textDark : styles.textLight;
+  // Форма нового елемента
+  const [newName, setNewName] = useState('');
+  const [newEff, setNewEff] = useState(10);
+  const [userName, setUserName] = useState('Admin_User');
+
+  // --- ЛОГІКА ---
+  const addItem = () => {
+    if (newName.trim() === '') return Alert.alert("Помилка", "Введіть назву!");
+    const newItem = {
+      id: Math.random().toString(),
+      title: newName,
+      level: 1,
+      efficiency: parseInt(newEff),
+      desc: "Новий автоматизований процес, доданий користувачем."
+    };
+    setItems([newItem, ...items]);
+    setNewName('');
+    setCurrentScreen('list');
+  };
+
+  const deleteItem = (id) => {
+    setItems(items.filter(item => item.id !== id));
+    setDetailItem(null);
+  };
+
+  // --- КОМПОНЕНТИ ---
+  const NavMenu = () => (
+    <Modal visible={navVisible} animationType="fade" transparent={true}>
+      <TouchableOpacity style={styles.modalOverlay} onPress={() => setNavVisible(false)}>
+        <View style={styles.navModal}>
+          <Text style={styles.menuTitle}>Навігація</Text>
+          <TouchableOpacity style={styles.menuBtn} onPress={() => {setCurrentScreen('list'); setNavVisible(false)}}>
+            <Text style={styles.menuBtnText}>📋 Список процесів</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuBtn} onPress={() => {setCurrentScreen('add'); setNavVisible(false)}}>
+            <Text style={styles.menuBtnText}>➕ Додати новий</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuBtn} onPress={() => {setCurrentScreen('settings'); setNavVisible(false)}}>
+            <Text style={styles.menuBtnText}>⚙️ Налаштування</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
 
   return (
-    <SafeAreaView style={[styles.safeArea, themeContainerStyle]}>
+    <SafeAreaView style={[styles.container, isDarkMode ? styles.bgDark : styles.bgLight]}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       
-      {/* Хедер додатка */}
+      {/* HEADER */}
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, themeTextStyle]}>DevTeam Clicker: Automation</Text>
+        <Text style={[styles.title, isDarkMode ? styles.textDark : styles.textLight]}>
+          GamePanel <Text style={{color: '#deff9a'}}>v2.0</Text>
+        </Text>
+        <TouchableOpacity style={styles.burger} onPress={() => setNavVisible(true)}>
+          <View style={[styles.burgerLine, {backgroundColor: isDarkMode ? '#fff' : '#000'}]} />
+          <View style={[styles.burgerLine, {backgroundColor: isDarkMode ? '#fff' : '#000'}]} />
+          <View style={[styles.burgerLine, {backgroundColor: isDarkMode ? '#fff' : '#000'}]} />
+        </TouchableOpacity>
       </View>
 
-      {/* --- ПУНКТ 3: Контейнер для відображення контенту в залежності від стану --- */}
-      <View style={styles.contentContainer}>
-        {currentScreen === 'list' ? (
-          // ЕКРАН 1: Список процесів автоматизації
-          <FlatList
-            data={gameItems}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <TeamItem 
-                title={item.title} 
-                level={item.level} 
-                efficiency={item.efficiency} 
-                isDark={isDarkMode}
-              />
-            )}
-            contentContainerStyle={styles.listPadding}
+      {/* ЕКРАН 1: СПИСОК */}
+      {currentScreen === 'list' && (
+        <FlatList 
+          data={items}
+          keyExtractor={item => item.id}
+          renderItem={({item}) => (
+            <TouchableOpacity style={styles.card} onPress={() => setDetailItem(item)}>
+              <View>
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                <Text style={styles.cardSub}>Рівень: {item.level} | +{item.efficiency}/s</Text>
+              </View>
+              <Text style={{fontSize: 24}}>➔</Text>
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={<Text style={styles.empty}>Список порожній...</Text>}
+        />
+      )}
+
+      {/* ЕКРАН 2: НАЛАШТУВАННЯ */}
+      {currentScreen === 'settings' && (
+        <ScrollView style={styles.padding}>
+          <Text style={styles.label}>Ім'я користувача:</Text>
+          <TextInput 
+            style={styles.input} 
+            value={userName} 
+            onChangeText={setUserName} 
+            placeholder="Введіть нікнейм"
+            placeholderTextColor="#999"
           />
-        ) : (
-          // ЕКРАН 2: Налаштування
-          <View style={styles.settingsScreen}>
-            <Text style={[styles.sectionTitle, themeTextStyle]}>Глобальні налаштування гри</Text>
-            
-            <View style={[styles.settingRow, isDarkMode ? styles.rowDark : styles.rowLight]}>
-              <Text style={[styles.settingLabel, themeTextStyle]}>Темна тема інтерфейсу</Text>
-              <Switch
-                value={isDarkMode}
-                onValueChange={(value) => setIsDarkMode(value)}
-                trackColor={{ false: '#767577', true: '#4caf50' }}
-                thumbColor={isDarkMode ? '#fff' : '#f4f3f4'}
-              />
-            </View>
-
-            <View style={[styles.settingRow, isDarkMode ? styles.rowDark : styles.rowLight]}>
-              <Text style={[styles.settingLabel, themeTextStyle]}>Звукові ефекти (імітація)</Text>
-              <Switch value={true} disabled={true} />
-            </View>
-            
-            <Text style={styles.hintText}>Зміна теми впливає на всі екрани додатку.</Text>
+          
+          <View style={styles.row}>
+            <Text style={styles.label}>Темна тема:</Text>
+            <Switch value={isDarkMode} onValueChange={setIsDarkMode} />
           </View>
-        )}
-      </View>
 
-      {/* --- ПУНКТ 4: Навігаційні кнопки з індикацією активного екрану --- */}
-      <View style={[styles.tabBar, isDarkMode ? styles.tabBarDark : styles.tabBarLight]}>
-        <TouchableOpacity 
-          style={[
-            styles.tabButton, 
-            currentScreen === 'list' && styles.activeTabButton
-          ]} 
-          onPress={() => setCurrentScreen('list')}
-        >
-          <Text style={[
-            styles.tabText, 
-            currentScreen === 'list' ? styles.tabTextActive : styles.tabTextInactive
-          ]}>
-            📊 Процеси {currentScreen === 'list' ? '•' : ''}
-          </Text>
-        </TouchableOpacity>
+          <Text style={styles.label}>Гучність ефектів: {Math.floor(newEff)}%</Text>
+          <Slider
+            style={{width: '100%', height: 40}}
+            minimumValue={0}
+            maximumValue={100}
+            value={50}
+            minimumTrackTintColor="#deff9a"
+            maximumTrackTintColor="#555"
+          />
+        </ScrollView>
+      )}
 
-        <TouchableOpacity 
-          style={[
-            styles.tabButton, 
-            currentScreen === 'screen2' || currentScreen === 'settings' && styles.activeTabButton // підтримка назви стану
-          ]} 
-          onPress={() => setCurrentScreen('settings')}
-        >
-          <Text style={[
-            styles.tabText, 
-            currentScreen === 'settings' ? styles.tabTextActive : styles.tabTextInactive
-          ]}>
-            ⚙️ Налаштування {currentScreen === 'settings' ? '•' : ''}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* ЕКРАН 3: ДОДАВАННЯ */}
+      {currentScreen === 'add' && (
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.padding}>
+          <Text style={styles.label}>Назва нового процесу:</Text>
+          <TextInput 
+            style={styles.input} 
+            value={newName} 
+            onChangeText={setNewName}
+            placeholder="Напр: Квантовий двигун"
+            placeholderTextColor="#999"
+          />
+          <Text style={styles.label}>Початкова ефективність: {newEff}</Text>
+          <TextInput 
+            style={styles.input} 
+            keyboardType="numeric"
+            value={newEff.toString()} 
+            onChangeText={setNewEff}
+          />
+          <TouchableOpacity style={styles.saveBtn} onPress={addItem}>
+            <Text style={styles.saveBtnText}>Зберегти процес</Text>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      )}
+
+      {/* МОДАЛЬНЕ ВІКНО ДЕТАЛЕЙ */}
+      <Modal visible={!!detailItem} animationType="slide" transparent={true}>
+        <View style={styles.detailOverlay}>
+          <View style={styles.detailContent}>
+            <Text style={styles.detailTitle}>{detailItem?.title}</Text>
+            <Text style={styles.detailDesc}>{detailItem?.desc}</Text>
+            <View style={styles.stats}>
+               <Text>⚡ Ефективність: {detailItem?.efficiency}</Text>
+               <Text>📈 Рівень: {detailItem?.level}</Text>
+            </View>
+            <TouchableOpacity style={styles.delBtn} onPress={() => deleteItem(detailItem.id)}>
+              <Text style={styles.delBtnText}>Видалити цей елемент</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setDetailItem(null)}>
+              <Text style={styles.closeBtnText}>Закрити</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <NavMenu />
     </SafeAreaView>
   );
 }
 
-// --- Стилізація компонентів ---
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
-  containerLight: {
-    backgroundColor: '#f5f5f7',
-  },
-  containerDark: {
-    backgroundColor: '#121212',
-  },
-  header: {
-    padding: 16,
+  container: { flex: 1 },
+  bgDark: { backgroundColor: '#121212' },
+  bgLight: { backgroundColor: '#f0f0f0' },
+  header: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    padding: 20, 
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#333'
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  contentContainer: {
-    flex: 1,
-  },
-  listPadding: {
-    padding: 16,
-  },
-  // Стилі для карток (Пункт 5 та 7)
-  card: {
-    flexDirection: 'row',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3, // для Android
-  },
-  cardLight: {
-    backgroundColor: '#ffffff',
-  },
-  cardDark: {
-    backgroundColor: '#1e1e1e',
-  },
-  iconPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#e1f5fe',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  iconText: {
-    fontSize: 24,
-  },
-  cardContent: {
-    flex: 1,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    color: '#757575',
-  },
-  // Екран налаштувань
-  settingsScreen: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  settingRow: {
+  title: { fontSize: 28, fontWeight: 'bold' },
+  textDark: { color: '#fff' },
+  textLight: { color: '#000' },
+  burger: { width: 30, height: 20, justifyContent: 'space-between' },
+  burgerLine: { height: 3, width: '100%', borderRadius: 2 },
+  card: { 
+    backgroundColor: '#1e1e1e', 
+    margin: 10, 
+    padding: 20, 
+    borderRadius: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    borderLeftWidth: 5,
+    borderLeftColor: '#deff9a'
+  },
+  cardTitle: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  cardSub: { color: '#aaa', marginTop: 5 },
+  padding: { padding: 20 },
+  label: { color: '#deff9a', fontSize: 16, marginBottom: 10, marginTop: 15 },
+  input: { 
+    backgroundColor: '#252525', 
+    color: '#fff', 
+    padding: 15, 
     borderRadius: 10,
-    marginBottom: 12,
+    fontSize: 16 
   },
-  rowLight: {
-    backgroundColor: '#fff',
-  },
-  rowDark: {
-    backgroundColor: '#1e1e1e',
-  },
-  settingLabel: {
-    fontSize: 16,
-  },
-  hintText: {
-    fontSize: 12,
-    color: '#9e9e9e',
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  // Таб-бар (Пункт 4)
-  tabBar: {
-    flexDirection: 'row',
-    height: 60,
-    borderTopWidth: 1,
-  },
-  tabBarLight: {
-    backgroundColor: '#ffffff',
-    borderTopColor: '#e0e0e0',
-  },
-  tabBarDark: {
-    backgroundColor: '#1e1e1e',
-    borderTopColor: '#333333',
-  },
-  tabButton: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  activeTabButton: {
-    borderTopWidth: 3,
-    borderTopColor: '#2196f3', // синій індикатор активності
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  tabTextActive: {
-    color: '#2196f3',
-  },
-  tabTextInactive: {
-    color: '#8e8e93',
-  },
-  // Текстові теми
-  textLight: {
-    color: '#000000',
-  },
-  textDark: {
-    color: '#ffffff',
-  },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 },
+  saveBtn: { backgroundColor: '#deff9a', padding: 15, borderRadius: 10, marginTop: 30, alignItems: 'center' },
+  saveBtnText: { color: '#000', fontWeight: 'bold', fontSize: 18 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
+  navModal: { backgroundColor: '#1e1e1e', width: '80%', padding: 30, borderRadius: 20 },
+  menuTitle: { color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
+  menuBtn: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#333' },
+  menuBtnText: { color: '#deff9a', fontSize: 18 },
+  detailOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'flex-end' },
+  detailContent: { backgroundColor: '#1e1e1e', padding: 30, borderTopLeftRadius: 30, borderTopRightRadius: 30 },
+  detailTitle: { color: '#fff', fontSize: 26, fontWeight: 'bold' },
+  detailDesc: { color: '#ccc', fontSize: 16, marginTop: 15, lineHeight: 24 },
+  stats: { backgroundColor: '#deff9a', padding: 15, borderRadius: 10, marginTop: 20 },
+  delBtn: { marginTop: 20, padding: 15, alignItems: 'center', borderWidth: 1, borderColor: '#ff4444', borderRadius: 10 },
+  delBtnText: { color: '#ff4444', fontWeight: 'bold' },
+  closeBtn: { marginTop: 15, padding: 15, alignItems: 'center' },
+  closeBtnText: { color: '#aaa' },
+  empty: { color: '#555', textAlign: 'center', marginTop: 50, fontSize: 18 }
 });
